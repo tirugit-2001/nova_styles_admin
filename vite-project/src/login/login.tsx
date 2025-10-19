@@ -1,0 +1,149 @@
+import { useNavigate } from "react-router-dom";
+import "./Login.css";
+import { useState } from "react";
+// import logo from "../../../public/ar-logo1.png";
+import axios from "axios";
+
+interface LoginInputType {
+  email: string;
+  password: string;
+}
+
+export function LoginPage() {
+  const navigate = useNavigate();
+  const [loginType, setLoginType] = useState<"forAdmin" | "forStudents">(
+    "forAdmin"
+  );
+  const [data, setData] = useState<LoginInputType>({ email: "", password: "" });
+  const [running, setRunning] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
+  // 🔐 Handle login
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setError("");
+    setRunning(true);
+
+
+
+    try {
+      const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
+      localStorage.setItem("deviceId", deviceId);
+     
+
+   const res = await axios.post(
+      `${backendUrl}/auth/login`, // ✅ Correct backend path
+      {
+        email:data.email,
+        password:data.password,
+        deviceId,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+      // ✅ Save tokens
+      localStorage.setItem("accessToken", res.data.accessToken);
+      localStorage.setItem("refreshToken", res.data.refreshToken);
+
+      // ✅ Redirect to admin dashboard
+      navigate("/admin");
+    } catch (err: any) {
+      console.error(err);
+      setError(
+        err.response?.data?.message || "Invalid credentials. Please try again."
+      );
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="login_main_container">
+      <div
+        className={`login_container ${
+          loginType === "forStudents" && "right-panel-active"
+        }`}
+        id="login_container"
+      >
+        <div className={`form-container sign-in-container ${loginType}`}>
+          <form onSubmit={handleSubmit}>
+            <h1 className="login">Admin Login</h1>
+
+            {/* <input type="text" placeholder="username" name="user_name" ... /> */}
+
+            <input
+              type="email"
+              placeholder="Email"
+              name="email"
+              required
+              onChange={(e) =>
+                setData((prev) => ({ ...prev, email: e.target.value }))
+              }
+            />
+
+            <input
+              type="password"
+              placeholder="Password"
+              name="password"
+              required
+              onChange={(e) =>
+                setData((prev) => ({ ...prev, password: e.target.value }))
+              }
+            />
+
+            {error && <p className="error-message">{error}</p>}
+
+            <button className="mt-3" disabled={running}>
+              {running ? (
+                <div className="container">
+                  <div className="loadingspinner">
+                    <div id="square1"></div>
+                    <div id="square2"></div>
+                    <div id="square3"></div>
+                    <div id="square4"></div>
+                    <div id="square5"></div>
+                  </div>
+                </div>
+              ) : (
+                "Login"
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* right side content */}
+        <div className="overlay-container">
+          <div className="overlay">
+            <div className="overlay-panel overlay-left">
+              <h1 className="brand">Campus Meal Management</h1>
+              <p>Efficient Meal Management For Campus Communities</p>
+              <button
+                onClick={() => setLoginType("forAdmin")}
+                className="ghost"
+                id="signIn"
+              >
+                Login as admin
+              </button>
+            </div>
+            <div className="overlay-panel overlay-right">
+              <div>
+                {/* <img
+                  className="w-[25%] mx-auto rounded logoo"
+                  src={logo}
+                  alt="logo"
+                /> */}
+                <h1 className="brand">Nova-Style Admin Panel</h1>
+              </div>
+              {/* <img src={ims2} alt="" /> */}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
