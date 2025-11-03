@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import ProtectedRoute from "./components/ProtectedRouter";
+import { AdminLayout } from "./components/AdminLayout";
 import AdminDashboard from "./pages/AdminDashboard";
 import { HeroSectionAdmin } from "./pages/AdminComponents/HeroSectionAdmin";
 import { InteriorScrollAdmin } from "./pages/AdminComponents/InteriorScrollAdmin";
@@ -21,7 +22,9 @@ function App() {
         path="/admin"
         element={
           <ProtectedRoute>
-            <AdminDashboard />
+            <AdminLayout>
+              <AdminDashboard />
+            </AdminLayout>
           </ProtectedRoute>
         }
       />
@@ -30,7 +33,9 @@ function App() {
         path="/admin/hero"
         element={
           <ProtectedRoute>
-            <HeroSectionAdmin />
+            <AdminLayout>
+              <HeroSectionAdmin />
+            </AdminLayout>
           </ProtectedRoute>
         }
       />
@@ -39,7 +44,9 @@ function App() {
         path="/admin/interiorscroll"
         element={
           <ProtectedRoute>
-            <InteriorScrollAdmin />
+            <AdminLayout>
+              <InteriorScrollAdmin />
+            </AdminLayout>
           </ProtectedRoute>
         }
       />
@@ -48,7 +55,9 @@ function App() {
         path="/admin/portfolioadmin"
         element={
           <ProtectedRoute>
-            <PortfolioAdmin />
+            <AdminLayout>
+              <PortfolioAdmin />
+            </AdminLayout>
           </ProtectedRoute>
         }
       />
@@ -57,7 +66,9 @@ function App() {
         path="/admin/products"
         element={
           <ProtectedRoute>
-            <ProductAdmin />
+            <AdminLayout>
+              <ProductAdmin />
+            </AdminLayout>
           </ProtectedRoute>
         }
       />

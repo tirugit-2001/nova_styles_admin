@@ -8,7 +8,10 @@ interface ProtectedRouteProps {
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const token = localStorage.getItem("accessToken");
 
-  // if no token → redirect to login
+  // ✅ Client-side route protection check
+  // Note: Actual authentication is handled by HTTP-only cookies sent automatically
+  // This localStorage check is just for client-side routing convenience
+  // Backend will verify authentication via cookies on each request
   if (!token) {
     return <Navigate to="/login" replace />;
   }

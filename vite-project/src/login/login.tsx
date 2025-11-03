@@ -2,7 +2,7 @@ import { useNavigate } from "react-router-dom";
 import "./Login.css";
 import { useState } from "react";
 // import logo from "../../../public/ar-logo1.png";
-import axios from "axios";
+import { axios } from "../config/axios";
 
 interface LoginInputType {
   email: string;
@@ -33,22 +33,24 @@ export function LoginPage() {
      
 
    const res = await axios.post(
-      `${backendUrl}/auth/login`, // ✅ Correct backend path
+      "/api/v1/auth/login", // ✅ Uses configured axios with withCredentials for cookies
       {
         email:data.email,
         password:data.password,
         deviceId,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
       }
     );
 
-      // ✅ Save tokens
-      localStorage.setItem("accessToken", res.data.accessToken);
-      localStorage.setItem("refreshToken", res.data.refreshToken);
+      // ✅ Backend sets HTTP-only cookies (accessToken, refreshToken) automatically
+      // Store tokens in localStorage only for client-side route protection check
+      // Actual authentication is handled by HTTP-only cookies
+      if (res.data.accessToken && res.data.refreshToken) {
+        localStorage.setItem("accessToken", res.data.accessToken);
+        localStorage.setItem("refreshToken", res.data.refreshToken);
+      } else {
+        // If backend only uses cookies (doesn't return tokens), set a flag for ProtectedRoute
+        localStorage.setItem("accessToken", "cookie-based-auth");
+      }
 
       // ✅ Redirect to admin dashboard
       navigate("/admin");
