@@ -17,7 +17,6 @@ export function LoginPage() {
   const [data, setData] = useState<LoginInputType>({ email: "", password: "" });
   const [running, setRunning] = useState<boolean>(false);
   const [error, setError] = useState<string>("");
-  const backendUrl = import.meta.env.VITE_BACKEND_URL;
 
   // 🔐 Handle login
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -56,9 +55,23 @@ export function LoginPage() {
       navigate("/admin");
     } catch (err: any) {
       console.error(err);
-      setError(
-        err.response?.data?.message || "Invalid credentials. Please try again."
-      );
+      
+      // Handle different types of errors
+      if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
+        setError("Network error: Unable to connect to the server. Please check if the backend is running.");
+      } else if (err.code === 'ERR_CANCELED') {
+        setError("Request was cancelled. Please try again.");
+      } else if (err.response?.status === 401) {
+        setError(err.response?.data?.message || "Invalid email or password. Please try again.");
+      } else if (err.response?.status === 403) {
+        setError("Access forbidden. Please check your credentials.");
+      } else if (err.response?.status >= 500) {
+        setError("Server error. Please try again later.");
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError("An unexpected error occurred. Please try again.");
+      }
     } finally {
       setRunning(false);
     }
