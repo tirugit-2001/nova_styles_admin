@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import "./Login.css";
+import "./login.css";
 import { useState } from "react";
 // import logo from "../../../public/ar-logo1.png";
 import { axios } from "../config/axios";
@@ -24,21 +24,18 @@ export function LoginPage() {
     setError("");
     setRunning(true);
 
-
-
     try {
       const deviceId = localStorage.getItem("deviceId") || crypto.randomUUID();
       localStorage.setItem("deviceId", deviceId);
-     
 
-   const res = await axios.post(
-      "/api/v1/auth/login", // ✅ Uses configured axios with withCredentials for cookies
-      {
-        email:data.email,
-        password:data.password,
-        deviceId,
-      }
-    );
+      const res = await axios.post(
+        "/api/v1/auth/login", // ✅ Uses configured axios with withCredentials for cookies
+        {
+          email: data.email,
+          password: data.password,
+          deviceId,
+        }
+      );
 
       // ✅ Backend sets HTTP-only cookies (accessToken, refreshToken) automatically
       // Store tokens in localStorage only for client-side route protection check
@@ -55,14 +52,22 @@ export function LoginPage() {
       navigate("/admin");
     } catch (err: any) {
       console.error(err);
-      
+
       // Handle different types of errors
-      if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
-        setError("Network error: Unable to connect to the server. Please check if the backend is running.");
-      } else if (err.code === 'ERR_CANCELED') {
+      if (
+        err.code === "ERR_NETWORK" ||
+        err.message?.includes("Network Error")
+      ) {
+        setError(
+          "Network error: Unable to connect to the server. Please check if the backend is running."
+        );
+      } else if (err.code === "ERR_CANCELED") {
         setError("Request was cancelled. Please try again.");
       } else if (err.response?.status === 401) {
-        setError(err.response?.data?.message || "Invalid email or password. Please try again.");
+        setError(
+          err.response?.data?.message ||
+            "Invalid email or password. Please try again."
+        );
       } else if (err.response?.status === 403) {
         setError("Access forbidden. Please check your credentials.");
       } else if (err.response?.status >= 500) {
