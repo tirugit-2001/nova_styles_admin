@@ -11,7 +11,7 @@ export class ProductAdminModel {
   name: string = "";
   price: number = 0;
   description: string = "";
-  // imageUrl: string = "";
+  image: string = "";
   stock: number = 0;
   paperTextures: string[] = [];
   colours: string[] = [];
@@ -26,6 +26,7 @@ export function ProductAdmin() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [action, setAction] = useState<"Add" | "Edit" | "">("");
   const [editId, setEditId] = useState<string | null>(null);
+  const [editingItem, setEditingItem] = useState<ProductAdminModel | null>(null);
 
   // Temporary string states for array inputs
   const [paperTexturesInput, setPaperTexturesInput] = useState("");
@@ -84,7 +85,7 @@ export function ProductAdmin() {
       ...restData,
       price: Number(formData.price),
       stock: Number(formData.stock),
-      // imageUrl: formData.imageUrl, 
+      image: formData.image,
       paperTextures: paperTexturesInput.split(",").map((s) => s.trim()).filter(Boolean),
       colours: coloursInput.split(",").map((s) => s.trim()).filter(Boolean),
       material: materialInput.split(",").map((s) => s.trim()).filter(Boolean),
@@ -140,10 +141,11 @@ export function ProductAdmin() {
   const handleEdit = (item: ProductAdminModel) => {
     setAction("Edit");
     setEditId(item.id || null);
+    setEditingItem(item);
     setIsModalOpen(true);
 
     setValue("name", item.name);
-    // setValue("imageUrl", item.imageUrl);
+    setValue("image", item.image || "");
     setValue("price", item.price);
     setValue("stock", item.stock);
     setValue("description", item.description);
@@ -162,6 +164,7 @@ export function ProductAdmin() {
     reset(new ProductAdminModel());
     setAction("");
     setEditId(null);
+    setEditingItem(null);
     
     // Clear array inputs
     setPaperTexturesInput("");
@@ -181,6 +184,7 @@ export function ProductAdmin() {
           onClick={() => {
             setIsModalOpen(true);
             setAction("Add");
+            setEditingItem(null);
           }}
           className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
         >
@@ -210,11 +214,19 @@ export function ProductAdmin() {
             )}
           </div>
 
-          <div>
-            {/* <ImageUploader
-             onImageChange={(base64:string) => setValue("imageUrl", base64)}
-             defaultImage={undefined} /> */}
-          </div>
+          {/* 🖼️ Image Uploader */}
+          <ImageUploader
+            key={editId || "new"}
+            onImageChange={(base64: string) => setValue("image", base64)}
+            initialImage={editingItem?.image || ""}
+          />
+          <input
+            type="hidden"
+            {...register("image")}
+          />
+          {errors.image && (
+            <p className="text-red-500 text-sm mt-1">{errors.image.message}</p>
+          )}
 
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -349,13 +361,13 @@ export function ProductAdmin() {
               <div className="flex justify-between items-start">
                 <div className="flex-1">
                   <div className="flex items-start gap-4">
-                    {/* {item.imageUrl && (
+                    {item.image && (
                       <img
-                        src={item.imageUrl}
+                        src={item.image}
                         alt={item.name}
                         className="w-20 h-20 object-cover rounded"
                       />
-                    )} */}
+                    )}
                     <div className="flex-1">
                       <p className="font-medium text-lg">{item.name}</p>
                       <p className="text-sm text-gray-600 mt-1">{item.description}</p>

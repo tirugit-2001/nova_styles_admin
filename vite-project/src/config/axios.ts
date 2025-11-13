@@ -1,7 +1,13 @@
 import axiosLib from 'axios';
 
+// Always use the full backend URL from environment variable or fallback to Render backend
+// Note: Backend must have CORS configured to allow requests from the frontend origin
+const getBaseURL = () => {
+  return import.meta.env.VITE_BACKEND_URL || 'https://nova-styles-backend.onrender.com';
+};
+
 export const axios = axiosLib.create({
-  baseURL: import.meta.env.VITE_BACKEND_URL || 'http://localhost:8500',
+  baseURL: getBaseURL(),
   timeout: 100000,
   withCredentials: true, // ✅ Required for HTTP-only cookies to be sent with requests
   headers: {

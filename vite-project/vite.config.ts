@@ -7,5 +7,15 @@ export default defineConfig({
   server: {
     port: 5174,
     host: true, // allows external connections
+    proxy: {
+      '/api': {
+        target: 'https://nova-styles-backend.onrender.com',
+        changeOrigin: true,
+        secure: true,
+        ws: true,
+        // Rewrite the request to maintain the /api path
+        // This will forward /api/v1/auth/login to https://nova-styles-backend.onrender.com/api/v1/auth/login
+      },
+    },
   },
 })
