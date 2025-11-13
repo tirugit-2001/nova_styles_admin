@@ -52,22 +52,14 @@ export function LoginPage() {
       navigate("/admin");
     } catch (err: any) {
       console.error(err);
-
+      
       // Handle different types of errors
-      if (
-        err.code === "ERR_NETWORK" ||
-        err.message?.includes("Network Error")
-      ) {
-        setError(
-          "Network error: Unable to connect to the server. Please check if the backend is running."
-        );
-      } else if (err.code === "ERR_CANCELED") {
+      if (err.code === 'ERR_NETWORK' || err.message?.includes('Network Error')) {
+        setError("Network error: Unable to connect to the server. Please check if the backend is running.");
+      } else if (err.code === 'ERR_CANCELED') {
         setError("Request was cancelled. Please try again.");
       } else if (err.response?.status === 401) {
-        setError(
-          err.response?.data?.message ||
-            "Invalid email or password. Please try again."
-        );
+        setError(err.response?.data?.message || "Invalid email or password. Please try again.");
       } else if (err.response?.status === 403) {
         setError("Access forbidden. Please check your credentials.");
       } else if (err.response?.status >= 500) {

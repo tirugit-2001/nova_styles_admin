@@ -1,14 +1,9 @@
 import axiosLib from 'axios';
 
-// In development, use empty baseURL to leverage Vite proxy (avoids CORS)
-// In production, use the full backend URL from environment variable
+// Always use the full backend URL from environment variable or fallback to Render backend
+// Note: Backend must have CORS configured to allow requests from the frontend origin
 const getBaseURL = () => {
-  if (import.meta.env.DEV) {
-    // Development: Use relative URLs so Vite proxy can handle it
-    return '';
-  }
-  // Production: Use full backend URL
-  return import.meta.env.VITE_BACKEND_URL || 'http://localhost:8500';
+  return import.meta.env.VITE_BACKEND_URL || 'https://nova-styles-backend.onrender.com';
 };
 
 export const axios = axiosLib.create({

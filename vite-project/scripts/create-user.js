@@ -13,7 +13,7 @@
 
 import axios from 'axios';
 
-const BACKEND_URL = process.env.VITE_BACKEND_URL || 'http://localhost:8500';
+const BACKEND_URL = process.env.VITE_BACKEND_URL || 'https://nova-styles-backend.onrender.com';
 
 const createAdminUser = async () => {
   // User credentials

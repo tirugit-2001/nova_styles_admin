@@ -9,11 +9,12 @@ export default defineConfig({
     host: true, // allows external connections
     proxy: {
       '/api': {
-        target: 'http://localhost:8500',
+        target: 'https://nova-styles-backend.onrender.com',
         changeOrigin: true,
-        secure: false,
+        secure: true,
+        ws: true,
         // Rewrite the request to maintain the /api path
-        // This will forward /api/v1/auth/login to http://localhost:8500/api/v1/auth/login
+        // This will forward /api/v1/auth/login to https://nova-styles-backend.onrender.com/api/v1/auth/login
       },
     },
   },

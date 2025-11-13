@@ -80,7 +80,7 @@
             <div>Email: <input type="email" id="emailInput" value="NovaAdmin@nova.com" style="width: 200px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;"></div>
             <div style="margin-top: 8px;">Password: <input type="text" id="passwordInput" value="nova123" style="width: 200px; padding: 4px; border: 1px solid #ccc; border-radius: 3px;"></div>
             <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                Backend URL: <span id="backendUrl">http://localhost:8500</span>
+                Backend URL: <span id="backendUrl">https://nova-styles-backend.onrender.com</span>
             </div>
         </div>
 
@@ -91,7 +91,7 @@
 
     <script>
         // Get backend URL from environment or use default
-        const backendUrl = 'http://localhost:8500';
+        const backendUrl = 'https://nova-styles-backend.onrender.com';
         document.getElementById('backendUrl').textContent = backendUrl;
 
         async function createUser() {
