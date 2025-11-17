@@ -3,7 +3,7 @@ import axiosLib from 'axios';
 // Always use the full backend URL from environment variable or fallback to Render backend
 // Note: Backend must have CORS configured to allow requests from the frontend origin
 const getBaseURL = () => {
-  return import.meta.env.VITE_BACKEND_URL || 'https://nova-styles-backend.onrender.com';
+  return import.meta.env.VITE_BACKEND_URL || 'https://nova-styles-backend.onrender.com' || 'http://localhost:8500';
 };
 
 export const axios = axiosLib.create({

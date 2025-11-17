@@ -132,8 +132,6 @@ export function LoginPage() {
         <div className="overlay-container">
           <div className="overlay">
             <div className="overlay-panel overlay-left">
-              <h1 className="brand">Campus Meal Management</h1>
-              <p>Efficient Meal Management For Campus Communities</p>
               <button
                 onClick={() => setLoginType("forAdmin")}
                 className="ghost"

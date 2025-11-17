@@ -82,25 +82,93 @@ export const ProductSectionAPI = {
   },
 };
 
+
 export const PortfolioAPI = {
-  getPortfolio: async () => {
-    const res = await axios.get("/api/v1/portfolioContent/portfolio");
-    console.log(res.data);
+  // Optional query filters: ?showOnMainHome=true, etc.
+  getPortfolio: async (params?: { showOnMainHome?: boolean; showOnInteriorHome?: boolean; showOnConstruction?: boolean }) => {
+    const res = await axios.get("/api/v1/portfolioContent/portfolio", { params });
     return res;
   },
 
-  addPortfolio: async (data: PortfolioAdminModel) => {
-    const res = await axios.post("/api/v1/portfolioContent/portfolio", data);
+  addPortfolio: async (data: PortfolioAdminModel, imageFile?: File) => {
+    const form = new FormData();
+    form.append("title", data.title);
+    form.append("location", data.location);
+    form.append("category", data.category);
+    form.append("showOnMainHome", String(!!data.showOnMainHome));
+    form.append("showOnInteriorHome", String(!!data.showOnInteriorHome));
+    form.append("showOnConstruction", String(!!data.showOnConstruction));
+    if (imageFile) form.append("image", imageFile);
+
+    const res = await axios.post("/api/v1/portfolioContent/portfolio", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return res;
   },
 
-  editPortfolio: async (id: string, data: PortfolioAdminModel) => {
-    const res = await axios.put(`/api/v1/portfolioContent/portfolio/${id}`, data);
+  editPortfolio: async (id: string, data: PortfolioAdminModel, imageFile?: File) => {
+    const form = new FormData();
+    form.append("title", data.title);
+    form.append("location", data.location);
+    form.append("category", data.category);
+    form.append("showOnMainHome", String(!!data.showOnMainHome));
+    form.append("showOnInteriorHome", String(!!data.showOnInteriorHome));
+    form.append("showOnConstruction", String(!!data.showOnConstruction));
+    if (imageFile) form.append("image", imageFile);
+
+    const res = await axios.put(`/api/v1/portfolioContent/portfolio/${id}`, form, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return res;
   },
 
   deletePortfolio: async (id: string) => {
     const res = await axios.delete(`/api/v1/portfolioContent/portfolio/${id}`);
+    return res;
+  },
+
+  // Sections
+  addSection: async (id: string, name: string) => {
+    const res = await axios.post(`/api/v1/portfolioContent/portfolio/${id}/sections`, { name });
+    return res;
+  },
+
+  // images: File[]
+  addSectionImages: async (id: string, sectionIndex: number, images: File[]) => {
+    const form = new FormData();
+    images.forEach((f) => form.append("images", f));
+    const res = await axios.post(
+      `/api/v1/portfolioContent/portfolio/${id}/sections/${sectionIndex}/images`,
+      form,
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+    return res;
+  },
+
+  // ✅ CORRECT - Matches backend route
+  // Add multiple images to portfolio gallery
+  addPortfolioImages: async (portfolioId: string, files: File[]) => {
+    const formData = new FormData();
+    files.forEach((file) => {
+      formData.append("images", file);
+    });
+    const res = await axios.post(
+      `/api/v1/portfolioContent/portfolio/${portfolioId}/images`, // ✅ Correct
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+    return res;
+  },
+
+  // ✅ CORRECT - Matches backend route
+  // Delete a single image from portfolio gallery
+  deletePortfolioImage: async (portfolioId: string, imageUrl: string) => {
+    const encodedUrl = encodeURIComponent(imageUrl);
+    const res = await axios.delete(
+      `/api/v1/portfolioContent/portfolio/${portfolioId}/images/${encodedUrl}` // ✅ Correct
+    );
     return res;
   },
 };
