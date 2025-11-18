@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { OrderAPI, requestHandler, type Order, type OrderFilters, transformOrder } from "../../config/api";
 import { toast } from "sonner";
-import { Search, Filter, Eye } from "lucide-react";
+import { Search, Eye } from "lucide-react";
 
 const ORDER_STATUSES = [
   "all",

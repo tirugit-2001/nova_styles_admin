@@ -1,18 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { OrderAPI, requestHandler, type Order, type ShipmentTracking, transformOrder } from "../config/api";
+import { OrderAPI, requestHandler, type Order, transformOrder } from "../config/api";
 import { toast } from "sonner";
-import {
-  ArrowLeft,
-  Package,
-  MapPin,
-  Mail,
-  FileText,
-  Download,
-  Send,
-  Plus,
-  CheckCircle,
-} from "lucide-react";
+import { ArrowLeft, Package, MapPin, Mail, FileText, Download, Send, Plus } from "lucide-react";
 import { InvoicePreview } from "./InvoicePreview";
 
 const ORDER_STATUSES = [
@@ -68,7 +58,7 @@ export function OrderDetail() {
     setUpdating(true);
     requestHandler(
       async () => await OrderAPI.updateStatus(id, newStatus),
-      (data) => {
+      (_data) => {
         toast.success("Order status updated successfully");
         fetchOrder();
         setUpdating(false);
@@ -88,7 +78,7 @@ export function OrderDetail() {
     setUpdating(true);
     requestHandler(
       async () => await OrderAPI.updateLocation(id, newLocation.trim()),
-      (data) => {
+      (_data) => {
         toast.success("Location updated successfully");
         fetchOrder();
         setUpdating(false);
@@ -113,7 +103,7 @@ export function OrderDetail() {
           status: trackingEntry.status.trim(),
           notes: trackingEntry.notes.trim(),
         }),
-      (data) => {
+      (_data) => {
         toast.success("Tracking entry added successfully");
         setTrackingEntry({ location: "", status: "", notes: "" });
         fetchOrder();
@@ -160,7 +150,7 @@ export function OrderDetail() {
                     setUpdating(true);
                     requestHandler(
                       async () => await OrderAPI.sendInvoice(id),
-                      (sendData) => {
+                      (_sendData) => {
                         toast.success("Invoice sent to customer successfully");
                         fetchOrder();
                         setUpdating(false);
@@ -213,7 +203,7 @@ export function OrderDetail() {
     setUpdating(true);
     requestHandler(
       async () => await OrderAPI.sendInvoice(id),
-      (data) => {
+      (_data) => {
         toast.success("Invoice sent to customer successfully");
         fetchOrder();
         setUpdating(false);
@@ -230,7 +220,7 @@ export function OrderDetail() {
     setUpdating(true);
     requestHandler(
       async () => await OrderAPI.sendNotification(id, order),
-      (data) => {
+      (_data) => {
         toast.success("Status update email sent to customer");
         setUpdating(false);
       },
