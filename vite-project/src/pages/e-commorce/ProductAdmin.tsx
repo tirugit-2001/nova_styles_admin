@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import FormModal from "../../components/FormModel";
 import { ProductSectionAPI, requestHandler } from "../../config/api";
 import { toast } from "sonner";
-import ImageUploader from "../../components/ImageUploader";
 
 export class ProductAdminModel {
   _id?: string;
@@ -27,6 +26,8 @@ export function ProductAdmin() {
   const [action, setAction] = useState<"Add" | "Edit" | "">("");
   const [editId, setEditId] = useState<string | null>(null);
   const [editingItem, setEditingItem] = useState<ProductAdminModel | null>(null);
+  const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
 
   // Temporary string states for array inputs
   const [paperTexturesInput, setPaperTexturesInput] = useState("");
@@ -68,56 +69,61 @@ export function ProductAdmin() {
     getAllProducts();
   }, []);
 
+  // Helper: Convert comma-separated string to array
+  const parseCommaSeparated = (input: string): string[] => {
+    return input.split(",").map((s) => s.trim()).filter(Boolean);
+  };
+
+  // Helper: Build product data from form
+  const buildProductData = (formData: ProductAdminModel) => ({
+    name: formData.name,
+    price: Number(formData.price),
+    stock: Number(formData.stock),
+    description: formData.description,
+    paperTextures: parseCommaSeparated(paperTexturesInput),
+    colours: parseCommaSeparated(coloursInput),
+    material: parseCommaSeparated(materialInput),
+    print: parseCommaSeparated(printInput),
+    installation: parseCommaSeparated(installationInput),
+    application: parseCommaSeparated(applicationInput),
+  });
+
+  // Helper: Handle API response
+  const handleApiSuccess = (message: string) => {
+    toast.success(message);
+    getAllProducts();
+    closeModal();
+  };
+
+  const handleApiError = (errorMessage: string, defaultMessage: string) => {
+    toast.error(errorMessage || defaultMessage);
+  };
+
   // ✅ Submit (Add / Edit)
   const onSubmit = (formData: ProductAdminModel) => {
-     console.log("🔵 Raw form data:", formData);
-  console.log("🔵 Input strings:", {
-    paperTexturesInput,
-    coloursInput,
-    materialInput,
-    printInput,
-    installationInput,
-    applicationInput,
-  });
-    const {id, _id, ...restData} = formData
-    // Convert comma-separated strings to arrays
-    const productData = {
-      ...restData,
-      price: Number(formData.price),
-      stock: Number(formData.stock),
-      image: formData.image,
-      paperTextures: paperTexturesInput.split(",").map((s) => s.trim()).filter(Boolean),
-      colours: coloursInput.split(",").map((s) => s.trim()).filter(Boolean),
-      material: materialInput.split(",").map((s) => s.trim()).filter(Boolean),
-      print: printInput.split(",").map((s) => s.trim()).filter(Boolean),
-      installation: installationInput.split(",").map((s) => s.trim()).filter(Boolean),
-      application: applicationInput.split(",").map((s) => s.trim()).filter(Boolean),
-    };
+    // Validate image for new products
+    if (action === "Add" && !selectedImageFile) {
+      toast.error("Please select an image for the product");
+      return;
+    }
+
+    const productData = buildProductData(formData);
+    const imageFile = selectedImageFile || undefined;
 
     if (action === "Add") {
       requestHandler(
-        async () => await ProductSectionAPI.addProduct(productData),
-        (data) => {
-          toast.success(data.message || "Product added successfully!");
-          getAllProducts();
-          closeModal();
-        },
-        (errorMessage) => {
-          toast.error(errorMessage || "Failed to add product");
-        }
+        async () => await ProductSectionAPI.addProduct(productData, imageFile),
+        (data) => handleApiSuccess(data.message || "Product added successfully!"),
+        (errorMessage) => handleApiError(errorMessage, "Failed to add product")
       );
+      closeModal();
     } else if (action === "Edit" && editId) {
       requestHandler(
-        async () => await ProductSectionAPI.editProduct(editId, productData),
-        (data) => {
-          toast.success(data.message || "Product updated successfully!");
-          getAllProducts();
-          closeModal();
-        },
-        (errorMessage) => {
-          toast.error(errorMessage || "Failed to update product");
-        }
+        async () => await ProductSectionAPI.editProduct(editId, productData, imageFile),
+        (data) => handleApiSuccess(data.message || "Product updated successfully!"),
+        (errorMessage) => handleApiError(errorMessage, "Failed to update product")
       );
+      closeModal();
     }
   };
 
@@ -138,25 +144,34 @@ export function ProductAdmin() {
     );
   };
 
+  // Helper: Convert array to comma-separated string
+  const arrayToCommaSeparated = (arr: string[] | undefined): string => {
+    return arr?.join(", ") || "";
+  };
+
   const handleEdit = (item: ProductAdminModel) => {
     setAction("Edit");
     setEditId(item.id || null);
     setEditingItem(item);
     setIsModalOpen(true);
 
+    // Set form values
     setValue("name", item.name);
-    setValue("image", item.image || "");
     setValue("price", item.price);
     setValue("stock", item.stock);
     setValue("description", item.description);
 
+    // Set image preview and reset file selection
+    setImagePreview(item.image || "");
+    setSelectedImageFile(null);
+
     // Set array inputs as comma-separated strings
-    setPaperTexturesInput(item.paperTextures?.join(", ") || "");
-    setColoursInput(item.colours?.join(", ") || "");
-    setMaterialInput(item.material?.join(", ") || "");
-    setPrintInput(item.print?.join(", ") || "");
-    setInstallationInput(item.installation?.join(", ") || "");
-    setApplicationInput(item.application?.join(", ") || "");
+    setPaperTexturesInput(arrayToCommaSeparated(item.paperTextures));
+    setColoursInput(arrayToCommaSeparated(item.colours));
+    setMaterialInput(arrayToCommaSeparated(item.material));
+    setPrintInput(arrayToCommaSeparated(item.print));
+    setInstallationInput(arrayToCommaSeparated(item.installation));
+    setApplicationInput(arrayToCommaSeparated(item.application));
   };
 
   const closeModal = () => {
@@ -165,6 +180,8 @@ export function ProductAdmin() {
     setAction("");
     setEditId(null);
     setEditingItem(null);
+    setSelectedImageFile(null);
+    setImagePreview("");
     
     // Clear array inputs
     setPaperTexturesInput("");
@@ -174,6 +191,63 @@ export function ProductAdmin() {
     setInstallationInput("");
     setApplicationInput("");
   };
+
+  // Helper: Revoke blob URL if it exists
+  const revokeBlobUrl = (url: string) => {
+    if (url.startsWith("blob:")) {
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  // Handle image file selection
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    // Validate file size (5MB max)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image size should be less than 5MB");
+      return;
+    }
+
+    // Clean up previous preview
+    if (imagePreview) {
+      revokeBlobUrl(imagePreview);
+    }
+
+    setSelectedImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+    toast.success("Image selected");
+  };
+
+  // Remove selected image
+  const handleRemoveImage = () => {
+    if (imagePreview) {
+      revokeBlobUrl(imagePreview);
+    }
+
+    setSelectedImageFile(null);
+    setImagePreview(editingItem?.image || "");
+    
+    // Reset file input
+    const fileInput = document.getElementById("image-upload") as HTMLInputElement;
+    if (fileInput) fileInput.value = "";
+  };
+
+  // Cleanup object URLs on unmount
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        revokeBlobUrl(imagePreview);
+      }
+    };
+  }, [imagePreview]);
 
   return (
     <div className="p-6 max-w-4xl mx-auto mt-4">
@@ -214,19 +288,44 @@ export function ProductAdmin() {
             )}
           </div>
 
-          {/* 🖼️ Image Uploader */}
-          <ImageUploader
-            key={editId || "new"}
-            onImageChange={(base64: string) => setValue("image", base64)}
-            initialImage={editingItem?.image || ""}
-          />
-          <input
-            type="hidden"
-            {...register("image")}
-          />
-          {errors.image && (
-            <p className="text-red-500 text-sm mt-1">{errors.image.message}</p>
-          )}
+          {/* 🖼️ Image Upload */}
+          <div>
+            <label className="block font-medium mb-1">Image</label>
+            {imagePreview ? (
+              <div className="space-y-2">
+                <img
+                  src={imagePreview}
+                  alt="Preview"
+                  className="max-h-48 rounded object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="text-sm text-red-600 hover:text-red-700"
+                >
+                  Remove Image
+                </button>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="image-upload"
+                  className="cursor-pointer text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  Upload a file
+                </label>
+                <p className="text-gray-600 mt-2">or drag and drop</p>
+                <p className="text-xs text-gray-500 mt-2">PNG, JPG, GIF up to 5MB</p>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>

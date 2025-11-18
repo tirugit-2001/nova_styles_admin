@@ -5,7 +5,9 @@ import AdminDashboard from "./pages/AdminDashboard";
 import { HeroSectionAdmin } from "./pages/AdminComponents/HeroSectionAdmin";
 import { InteriorScrollAdmin } from "./pages/AdminComponents/InteriorScrollAdmin";
 import { ProductAdmin } from "./pages/e-commorce/ProductAdmin";
+import { OrderAdmin } from "./pages/e-commorce/OrderAdmin";
 import { PortfolioAdmin } from "./pages/AdminComponents/PortfolioAdmin";
+import { OrderDetail } from "./components/OrderDetail";
 import { LoginPage } from "./login/login";
 import { Toaster } from "sonner";
 
@@ -84,6 +86,28 @@ function App() {
             <ProtectedRoute>
               <AdminLayout>
                 <ProductAdmin />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/orders"
+          element={
+            <ProtectedRoute>
+              <AdminLayout>
+                <OrderAdmin />
+              </AdminLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/orders/:id"
+          element={
+            <ProtectedRoute>
+              <AdminLayout>
+                <OrderDetail />
               </AdminLayout>
             </ProtectedRoute>
           }
