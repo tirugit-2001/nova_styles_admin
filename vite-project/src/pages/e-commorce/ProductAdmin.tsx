@@ -4,6 +4,15 @@ import FormModal from "../../components/FormModel";
 import { ProductSectionAPI, requestHandler } from "../../config/api";
 import { toast } from "sonner";
 
+const DEFAULT_TEXTURES = [
+  "Non Woven",
+  "Sand Texture",
+  "Wall Fabric",
+  "Fabric Strokes",
+  "Canvas",
+  "Vinyl Self Adhesive",
+];
+
 export class ProductAdminModel {
   _id?: string;
   id?: string | null;
@@ -12,6 +21,7 @@ export class ProductAdminModel {
   description: string = "";
   image: string = "";
   stock: number = 0;
+  isTrending: boolean = false;
   paperTextures: string[] = [];
   colours: string[] = [];
   material: string[] = [];
@@ -28,24 +38,29 @@ export function ProductAdmin() {
   const [editingItem, setEditingItem] = useState<ProductAdminModel | null>(null);
   const [selectedImageFile, setSelectedImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [isSaving, setIsSaving] = useState(false);
 
   // Temporary string states for array inputs
-  const [paperTexturesInput, setPaperTexturesInput] = useState("");
   const [coloursInput, setColoursInput] = useState("");
   const [materialInput, setMaterialInput] = useState("");
   const [printInput, setPrintInput] = useState("");
   const [installationInput, setInstallationInput] = useState("");
   const [applicationInput, setApplicationInput] = useState("");
 
+  const texturesDisplay = DEFAULT_TEXTURES.join(", ");
+
   const {
     register,
     handleSubmit,
     reset,
     setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<ProductAdminModel>({
     defaultValues: new ProductAdminModel(),
   });
+
+  const isTrendingValue = watch("isTrending");
 
   // ✅ Fetch all products
   function getAllProducts() {
@@ -55,6 +70,7 @@ export function ProductAdmin() {
         const products = data.products.map((product: any) => ({
           ...product,
           id: product._id,
+          isTrending: Boolean(product.isTrending),
         }));
         setDataArray(products);
         toast.success("Products loaded successfully");
@@ -75,23 +91,28 @@ export function ProductAdmin() {
   };
 
   // Helper: Build product data from form
-  const buildProductData = (formData: ProductAdminModel) => ({
-    name: formData.name,
-    price: Number(formData.price),
-    stock: Number(formData.stock),
-    description: formData.description,
-    paperTextures: parseCommaSeparated(paperTexturesInput),
-    colours: parseCommaSeparated(coloursInput),
-    material: parseCommaSeparated(materialInput),
-    print: parseCommaSeparated(printInput),
-    installation: parseCommaSeparated(installationInput),
-    application: parseCommaSeparated(applicationInput),
-  });
+  const buildProductData = (formData: ProductAdminModel) => {
+    // Get the current value from watch to ensure we have the latest state
+    const currentIsTrending = isTrendingValue ?? formData.isTrending ?? false;
+    
+    return {
+      name: formData.name,
+      price: Number(formData.price),
+      stock: Number(formData.stock),
+      description: formData.description,
+      isTrending: Boolean(currentIsTrending),
+      paperTextures: DEFAULT_TEXTURES,
+      colours: parseCommaSeparated(coloursInput),
+      material: parseCommaSeparated(materialInput),
+      print: parseCommaSeparated(printInput),
+      installation: parseCommaSeparated(installationInput),
+      application: parseCommaSeparated(applicationInput),
+    };
+  };
 
   // Helper: Handle API response
   const handleApiSuccess = (message: string) => {
     toast.success(message);
-    getAllProducts();
     closeModal();
   };
 
@@ -100,7 +121,7 @@ export function ProductAdmin() {
   };
 
   // ✅ Submit (Add / Edit)
-  const onSubmit = (formData: ProductAdminModel) => {
+  const onSubmit = async (formData: ProductAdminModel) => {
     // Validate image for new products
     if (action === "Add" && !selectedImageFile) {
       toast.error("Please select an image for the product");
@@ -110,20 +131,26 @@ export function ProductAdmin() {
     const productData = buildProductData(formData);
     const imageFile = selectedImageFile || undefined;
 
-    if (action === "Add") {
-      requestHandler(
-        async () => await ProductSectionAPI.addProduct(productData, imageFile),
-        (data) => handleApiSuccess(data.message || "Product added successfully!"),
-        (errorMessage) => handleApiError(errorMessage, "Failed to add product")
-      );
-      closeModal();
-    } else if (action === "Edit" && editId) {
-      requestHandler(
-        async () => await ProductSectionAPI.editProduct(editId, productData, imageFile),
-        (data) => handleApiSuccess(data.message || "Product updated successfully!"),
-        (errorMessage) => handleApiError(errorMessage, "Failed to update product")
-      );
-      closeModal();
+    setIsSaving(true);
+
+    try {
+      if (action === "Add") {
+        await requestHandler(
+          async () => await ProductSectionAPI.addProduct(productData, imageFile),
+          (data) => handleApiSuccess(data.message || "Product added successfully!"),
+          (errorMessage) => handleApiError(errorMessage, "Failed to add product")
+        );
+        getAllProducts();
+      } else if (action === "Edit" && editId) {
+        await requestHandler(
+          async () => await ProductSectionAPI.editProduct(editId, productData, imageFile),
+          (data) => handleApiSuccess(data.message || "Product updated successfully!"),
+          (errorMessage) => handleApiError(errorMessage, "Failed to update product")
+        );
+        getAllProducts();
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -160,13 +187,13 @@ export function ProductAdmin() {
     setValue("price", item.price);
     setValue("stock", item.stock);
     setValue("description", item.description);
+    setValue("isTrending", item.isTrending || false);
 
     // Set image preview and reset file selection
     setImagePreview(item.image || "");
     setSelectedImageFile(null);
 
     // Set array inputs as comma-separated strings
-    setPaperTexturesInput(arrayToCommaSeparated(item.paperTextures));
     setColoursInput(arrayToCommaSeparated(item.colours));
     setMaterialInput(arrayToCommaSeparated(item.material));
     setPrintInput(arrayToCommaSeparated(item.print));
@@ -184,7 +211,6 @@ export function ProductAdmin() {
     setImagePreview("");
     
     // Clear array inputs
-    setPaperTexturesInput("");
     setColoursInput("");
     setMaterialInput("");
     setPrintInput("");
@@ -250,8 +276,9 @@ export function ProductAdmin() {
   }, [imagePreview]);
 
   return (
-    <div className="p-6 max-w-4xl mx-auto mt-4">
-      {/* Header with Create Button */}
+    <>
+      <div className="p-6 max-w-4xl mx-auto mt-4">
+        {/* Header with Create Button */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold">Product Manager</h2>
         <button
@@ -355,6 +382,23 @@ export function ProductAdmin() {
             </div>
           </div>
 
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="isTrending"
+              checked={Boolean(isTrendingValue)}
+              {...register("isTrending")}
+              onChange={(e) => {
+                const checked = e.target.checked;
+                setValue("isTrending", checked, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+              }}
+              className="h-5 w-5 text-blue-600 border-gray-300 rounded"
+            />
+            <label htmlFor="isTrending" className="font-medium">
+              Mark product as trending
+            </label>
+          </div>
+
           <div>
             <label className="block font-medium mb-1">Description</label>
             <textarea
@@ -369,21 +413,42 @@ export function ProductAdmin() {
           </div>
 
           <div>
-            <label className="block font-medium mb-1">Paper Textures</label>
+            <label className="block font-medium mb-1">Application / Category</label>
+            <select
+              value={applicationInput}
+              onChange={(e) => setApplicationInput(e.target.value)}
+              className="border p-2 w-full rounded bg-white"
+            >
+              <option value="">Select an option</option>
+              <option value="Kids & Playful Spaces">Kids & Playful Spaces</option>
+              <option value="Heritage & Vintage Art">Heritage & Vintage Art</option>
+              <option value="Indian Cultural Art – Pichwai">
+                Indian Cultural Art – Pichwai
+              </option>
+              <option value="Tropical Nature & Leaves">Tropical Nature & Leaves</option>
+              <option value="Peacock Elegance Collection Nature & Leaves">
+                Peacock Elegance Collection Nature & Leaves
+              </option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block font-medium mb-1">Textures</label>
             <input
               type="text"
-              value={paperTexturesInput}
-              onChange={(e) => setPaperTexturesInput(e.target.value)}
-              className="border p-2 w-full rounded"
-              placeholder="Matte, Canvas, Glossy (comma-separated)"
+              value={texturesDisplay}
+              disabled
+              readOnly
+              className="border p-2 w-full rounded bg-gray-100 text-gray-600 cursor-not-allowed"
             />
-            <p className="text-xs text-gray-500 mt-1">Separate with commas</p>
+            <p className="text-xs text-gray-500 mt-1">Fixed set enforced</p>
           </div>
 
           <div>
             <label className="block font-medium mb-1">Colours</label>
             <input
               type="text"
+              disabled = {true}
               value={coloursInput}
               onChange={(e) => setColoursInput(e.target.value)}
               className="border p-2 w-full rounded"
@@ -396,6 +461,7 @@ export function ProductAdmin() {
             <label className="block font-medium mb-1">Material</label>
             <input
               type="text"
+              disabled = {true}
               value={materialInput}
               onChange={(e) => setMaterialInput(e.target.value)}
               className="border p-2 w-full rounded"
@@ -408,6 +474,7 @@ export function ProductAdmin() {
             <label className="block font-medium mb-1">Print Type</label>
             <input
               type="text"
+              disabled = {true}
               value={printInput}
               onChange={(e) => setPrintInput(e.target.value)}
               className="border p-2 w-full rounded"
@@ -420,6 +487,7 @@ export function ProductAdmin() {
             <label className="block font-medium mb-1">Installation</label>
             <input
               type="text"
+              disabled = {true}
               value={installationInput}
               onChange={(e) => setInstallationInput(e.target.value)}
               className="border p-2 w-full rounded"
@@ -428,17 +496,7 @@ export function ProductAdmin() {
             <p className="text-xs text-gray-500 mt-1">Separate with commas</p>
           </div>
 
-          <div>
-            <label className="block font-medium mb-1">Application</label>
-            <input
-              type="text"
-              value={applicationInput}
-              onChange={(e) => setApplicationInput(e.target.value)}
-              className="border p-2 w-full rounded"
-              placeholder="Living Room, Office (comma-separated)"
-            />
-            <p className="text-xs text-gray-500 mt-1">Separate with commas</p>
-          </div>
+          
         </div>
       </FormModal>
 
@@ -475,6 +533,11 @@ export function ProductAdmin() {
                           ₹{item.price}
                         </p>
                         <p className="text-sm text-gray-600">Stock: {item.stock}</p>
+                        {item.isTrending && (
+                          <span className="text-xs font-semibold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">
+                            Trending
+                          </span>
+                        )}
                       </div>
                       
                       {/* Display arrays */}
@@ -522,5 +585,14 @@ export function ProductAdmin() {
         </ul>
       </div>
     </div>
+
+    {isSaving && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="bg-white px-6 py-4 rounded shadow-lg text-lg font-semibold text-gray-700">
+          Saving product...
+        </div>
+      </div>
+    )}
+    </>
   );
 }

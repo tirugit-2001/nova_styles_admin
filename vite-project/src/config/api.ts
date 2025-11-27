@@ -77,6 +77,7 @@ const buildProductFormData = (data: ProductFormData, imageFile?: File): FormData
   form.append("price", String(data.price));
   form.append("stock", String(data.stock));
   form.append("description", data.description);
+  form.append("isTrending", String(!!data.isTrending));
   
   // Array fields with bracket notation
   const arrayFields = [

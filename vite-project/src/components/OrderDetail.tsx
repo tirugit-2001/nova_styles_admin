@@ -117,31 +117,56 @@ export function OrderDetail() {
   };
 
   const handleGenerateInvoice = async () => {
-    if (!id) return;
+    if (!id || !order) return;
     setUpdating(true);
     requestHandler(
       async () => await OrderAPI.generateInvoice(id),
       async (data) => {
+        // Get invoice number from response
+        const invoiceNumber = data.invoice?.invoiceNumber || data.order?.invoice?.invoiceNumber || order?.orderNumber || id;
+        
+        // Update order state immediately with invoice data if available
+        if (data.invoice) {
+          setOrder({
+            ...order,
+            invoice: data.invoice,
+          });
+        } else if (data.order?.invoice) {
+          setOrder({
+            ...order,
+            invoice: data.order.invoice,
+          });
+        }
+        
         toast.success("Invoice generated successfully");
+        
         // Refresh order to get updated invoice info
         fetchOrder();
         
-        // Wait a moment for the PDF to be fully written to disk, then auto-download
-        setTimeout(async () => {
+        // Wait for PDF to be ready, then auto-download with retry logic
+        let retryCount = 0;
+        const maxRetries = 5;
+        const downloadInvoice = async () => {
           try {
             const response = await OrderAPI.downloadInvoice(id);
-            const blob = new Blob([response.data], { type: "application/pdf" });
+            
+            // Check if response is valid
+            if (!response || !response.data) {
+              throw new Error("Invalid response from server");
+            }
+            
+            // Response should be a blob for PDF
+            const blob = response.data instanceof Blob ? response.data : new Blob([response.data], { type: "application/pdf" });
+            
             const url = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = url;
-            const invoiceNumber = data.invoice?.invoiceNumber || order?.orderNumber || id;
             link.download = `invoice-${invoiceNumber}.pdf`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
             
-            // Show toast with option to send via email
             toast.success("Invoice downloaded automatically", {
               action: {
                 label: "Send via Email",
@@ -164,13 +189,48 @@ export function OrderDetail() {
                 },
               },
             });
+            
+            setUpdating(false);
           } catch (error: any) {
-            console.error("Auto-download failed:", error);
-            toast.info("Invoice generated. You can download it manually using the Download button.");
+            retryCount++;
+            
+            // Extract error message
+            let errorMessage = "Unknown error";
+            if (error?.response) {
+              // If error response is a blob, try to parse it
+              if (error.response.data instanceof Blob) {
+                try {
+                  const text = await error.response.data.text();
+                  const errorData = JSON.parse(text);
+                  errorMessage = errorData.message || `Server error: ${error.response.status || "Unknown"}`;
+                } catch {
+                  errorMessage = `Server error: ${error.response.status || "Unknown"}`;
+                }
+              } else if (error.response.data?.message) {
+                errorMessage = error.response.data.message;
+              } else {
+                errorMessage = `Server error: ${error.response.status || "Unknown"}`;
+              }
+            } else if (error?.message) {
+              errorMessage = error.message;
+            }
+            
+            console.log(`Download attempt ${retryCount}/${maxRetries} failed:`, errorMessage);
+            
+            if (retryCount < maxRetries) {
+              // Retry after increasing delay (2s, 3s, 4s, 5s, 6s)
+              const delay = 2000 + (retryCount * 1000);
+              setTimeout(downloadInvoice, delay);
+            } else {
+              console.error("Auto-download failed after all retries:", error);
+              toast.error("Invoice generated successfully. Auto-download failed - please use the Download button.");
+              setUpdating(false);
+            }
           }
-        }, 1000); // Wait 1 second for PDF to be ready
+        };
         
-        setUpdating(false);
+        // Start download after initial delay (give backend time to generate PDF)
+        setTimeout(downloadInvoice, 2000);
       },
       (errorMessage) => {
         toast.error(errorMessage || "Failed to generate invoice");
