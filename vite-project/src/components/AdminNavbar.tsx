@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, UserPlus, KeyRound, AlertCircle, X } from "lucide-react";
+import { LogOut, KeyRound, AlertCircle, X } from "lucide-react";
 import { toast } from "sonner";
 import FormModal from "./FormModel";
 import { useForm } from "react-hook-form";
@@ -226,14 +226,14 @@ export function AdminNavbar() {
             {/* Right side - Actions */}
             <div className="flex items-center gap-2 sm:gap-3">
               {/* Create Admin Button */}
-              <button
+              {/* <button
                 onClick={() => setShowCreateAdmin(true)}
                 className="group flex items-center gap-2 px-3 sm:px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 active:scale-95"
               >
                 <UserPlus size={18} className="group-hover:rotate-12 transition-transform duration-200" />
                 <span className="hidden sm:inline">Create Admin</span>
                 <span className="sm:hidden">Admin</span>
-              </button>
+              </button> */}
 
               {/* Change Password Button */}
               <button
