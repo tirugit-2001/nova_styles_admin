@@ -13,6 +13,11 @@ const DEFAULT_TEXTURES = [
   "Vinyl Self Adhesive",
 ];
 
+export interface PaperTexture {
+  name: string;
+  rate: number;
+}
+
 export class ProductAdminModel {
   _id?: string;
   id?: string | null;
@@ -22,7 +27,7 @@ export class ProductAdminModel {
   image: string = "";
   stock: number = 0;
   isTrending: boolean = false;
-  paperTextures: string[] = [];
+  paperTextures: PaperTexture[] = [];
   colours: string[] = [];
   material: string[] = [];
   print: string[] = [];
@@ -47,7 +52,14 @@ export function ProductAdmin() {
   const [installationInput, setInstallationInput] = useState("");
   const [applicationInput, setApplicationInput] = useState("");
 
-  const texturesDisplay = DEFAULT_TEXTURES.join(", ");
+  // State for texture prices
+  const [texturePrices, setTexturePrices] = useState<Record<string, number>>(() => {
+    const initial: Record<string, number> = {};
+    DEFAULT_TEXTURES.forEach(texture => {
+      initial[texture] = 0;
+    });
+    return initial;
+  });
 
   const {
     register,
@@ -95,13 +107,19 @@ export function ProductAdmin() {
     // Get the current value from watch to ensure we have the latest state
     const currentIsTrending = isTrendingValue ?? formData.isTrending ?? false;
     
+    // Build paperTextures array with name and rate
+    const paperTextures: PaperTexture[] = DEFAULT_TEXTURES.map(texture => ({
+      name: texture,
+      rate: texturePrices[texture] || 0
+    }));
+    
     return {
       name: formData.name,
       price: Number(formData.price),
       stock: Number(formData.stock),
       description: formData.description,
       isTrending: Boolean(currentIsTrending),
-      paperTextures: DEFAULT_TEXTURES,
+      paperTextures: paperTextures,
       colours: parseCommaSeparated(coloursInput),
       material: parseCommaSeparated(materialInput),
       print: parseCommaSeparated(printInput),
@@ -199,6 +217,27 @@ export function ProductAdmin() {
     setPrintInput(arrayToCommaSeparated(item.print));
     setInstallationInput(arrayToCommaSeparated(item.installation));
     setApplicationInput(arrayToCommaSeparated(item.application));
+
+    // Load texture prices
+    const texturePricesMap: Record<string, number> = {};
+    DEFAULT_TEXTURES.forEach(texture => {
+      texturePricesMap[texture] = 0; // Default to 0
+    });
+    
+    // If item has paperTextures as array of objects, load them
+    if (item.paperTextures && Array.isArray(item.paperTextures)) {
+      item.paperTextures.forEach((texture: any) => {
+        if (typeof texture === 'object' && texture.name && typeof texture.rate === 'number') {
+          texturePricesMap[texture.name] = texture.rate;
+        } else if (typeof texture === 'string') {
+          // Handle legacy string format
+          if (texturePricesMap.hasOwnProperty(texture)) {
+            texturePricesMap[texture] = 0;
+          }
+        }
+      });
+    }
+    setTexturePrices(texturePricesMap);
   };
 
   const closeModal = () => {
@@ -216,6 +255,13 @@ export function ProductAdmin() {
     setPrintInput("");
     setInstallationInput("");
     setApplicationInput("");
+
+    // Reset texture prices
+    const resetPrices: Record<string, number> = {};
+    DEFAULT_TEXTURES.forEach(texture => {
+      resetPrices[texture] = 0;
+    });
+    setTexturePrices(resetPrices);
   };
 
   // Helper: Revoke blob URL if it exists
@@ -355,7 +401,7 @@ export function ProductAdmin() {
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div>
+            {/* <div>
               <label className="block font-medium mb-1">Price (₹)</label>
               <input
                 type="number"
@@ -366,7 +412,7 @@ export function ProductAdmin() {
               {errors.price && (
                 <p className="text-red-500 text-sm mt-1">{errors.price.message}</p>
               )}
-            </div>
+            </div> */}
 
             <div>
               <label className="block font-medium mb-1">Stock</label>
@@ -433,15 +479,35 @@ export function ProductAdmin() {
           </div>
 
           <div>
-            <label className="block font-medium mb-1">Textures</label>
-            <input
-              type="text"
-              value={texturesDisplay}
-              disabled
-              readOnly
-              className="border p-2 w-full rounded bg-gray-100 text-gray-600 cursor-not-allowed"
-            />
-            <p className="text-xs text-gray-500 mt-1">Fixed set enforced</p>
+            <label className="block font-medium mb-1">Textures & Pricing</label>
+            <div className="space-y-2 border p-3 rounded bg-gray-50">
+              {DEFAULT_TEXTURES.map((texture) => (
+                <div key={texture} className="flex items-center gap-3">
+                  <label className="w-40 text-sm font-medium text-gray-700">
+                    {texture}:
+                  </label>
+                  <div className="flex-1 flex items-center gap-2">
+                    <span className="text-gray-600">₹</span>
+                    <input
+                      type="number"
+                      value={texturePrices[texture] || 0}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value) || 0;
+                        setTexturePrices(prev => ({
+                          ...prev,
+                          [texture]: value
+                        }));
+                      }}
+                      className="border p-2 w-full rounded bg-white"
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">Set price for each texture</p>
           </div>
 
           <div>
@@ -543,7 +609,23 @@ export function ProductAdmin() {
                       {/* Display arrays */}
                       <div className="mt-2 space-y-1 text-xs text-gray-600">
                         {item.paperTextures && item.paperTextures.length > 0 && (
-                          <p><strong>Textures:</strong> {item.paperTextures.join(", ")}</p>
+                          <div>
+                            <strong>Textures:</strong>
+                            <ul className="ml-4 mt-1 space-y-0.5">
+                              {item.paperTextures.map((texture: any, idx: number) => {
+                                if (typeof texture === 'object' && texture.name && typeof texture.rate === 'number') {
+                                  return (
+                                    <li key={idx}>
+                                      {texture.name}: ₹{texture.rate}
+                                    </li>
+                                  );
+                                } else if (typeof texture === 'string') {
+                                  return <li key={idx}>{texture}</li>;
+                                }
+                                return null;
+                              })}
+                            </ul>
+                          </div>
                         )}
                         {item.colours && item.colours.length > 0 && (
                           <p><strong>Colours:</strong> {item.colours.join(", ")}</p>

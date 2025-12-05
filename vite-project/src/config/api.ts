@@ -1,7 +1,7 @@
 import type { AxiosResponse } from "axios";
 import type { HeroSectionModel } from "../pages/AdminComponents/HeroSectionAdmin";
 import { axios } from "./axios";
-import type { ProductAdminModel } from "../pages/e-commorce/ProductAdmin";
+import type { ProductAdminModel, PaperTexture } from "../pages/e-commorce/ProductAdmin";
 import type { PortfolioAdminModel } from "../pages/AdminComponents/PortfolioAdmin";
 
 export const requestHandler = async (
@@ -61,7 +61,7 @@ export const HeroSectionAPI = {
 
 // Helper function to build FormData for product
 type ProductFormData = Omit<ProductAdminModel, "_id" | "id" | "image"> & {
-  paperTextures: string[];
+  paperTextures: PaperTexture[];
   colours: string[];
   material: string[];
   print: string[];
@@ -79,9 +79,11 @@ const buildProductFormData = (data: ProductFormData, imageFile?: File): FormData
   form.append("description", data.description);
   form.append("isTrending", String(!!data.isTrending));
   
+  // PaperTextures as JSON (array of objects with name and rate)
+  form.append("paperTextures", JSON.stringify(data.paperTextures));
+  
   // Array fields with bracket notation
   const arrayFields = [
-    { key: "paperTextures[]", values: data.paperTextures },
     { key: "colours[]", values: data.colours },
     { key: "material[]", values: data.material },
     { key: "print[]", values: data.print },
