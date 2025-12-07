@@ -216,6 +216,15 @@ export const PortfolioAPI = {
     );
     return res;
   },
+
+  // Update image order for portfolio gallery
+  updateImageOrder: async (portfolioId: string, imageUrls: string[]) => {
+    const res = await axios.put(
+      `/api/v1/portfolioContent/portfolio/${portfolioId}/images/order`,
+      { images: imageUrls }
+    );
+    return res;
+  },
 };
 
 interface CreateAdminData {

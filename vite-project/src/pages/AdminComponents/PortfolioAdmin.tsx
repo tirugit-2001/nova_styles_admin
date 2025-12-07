@@ -20,13 +20,172 @@ function GalleryModal({
   images: string[];
   onImagesUpdated: () => void;
 }) {
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  interface FileWithPreview {
+    id: string;
+    file: File;
+    preview: string;
+  }
+
+  const [selectedFiles, setSelectedFiles] = useState<FileWithPreview[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [orderedImages, setOrderedImages] = useState<string[]>(images);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  // For reordering selected files before upload
+  const [draggedFileIndex, setDraggedFileIndex] = useState<number | null>(null);
+  const [dragOverFileIndex, setDragOverFileIndex] = useState<number | null>(null);
+
+  // Update ordered images when images prop changes
+  useEffect(() => {
+    setOrderedImages(images);
+  }, [images]);
+
+  // Cleanup preview URLs on unmount
+  useEffect(() => {
+    return () => {
+      selectedFiles.forEach(item => URL.revokeObjectURL(item.preview));
+    };
+  }, [selectedFiles]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files ? Array.from(e.target.files) : [];
-    setSelectedFiles(files);
+    // Create file objects with preview URLs and unique IDs
+    const filesWithPreviews: FileWithPreview[] = files.map((file, index) => ({
+      id: `${Date.now()}-${index}-${file.name}`,
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setSelectedFiles(filesWithPreviews);
+  };
+
+  // Handle drag and drop for file uploads
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+    if (files.length > 0) {
+      // Create file objects with preview URLs and unique IDs
+      const filesWithPreviews: FileWithPreview[] = files.map((file, index) => ({
+        id: `${Date.now()}-${index}-${file.name}`,
+        file,
+        preview: URL.createObjectURL(file),
+      }));
+      setSelectedFiles(filesWithPreviews);
+    }
+  };
+
+  // Handle drag and drop for reordering images
+  const handleDragStart = (index: number) => {
+    setDraggedIndex(index);
+  };
+
+  const handleDragOverItem = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverIndex(index);
+  };
+
+  const handleDragLeaveItem = () => {
+    setDragOverIndex(null);
+  };
+
+  const handleDropItem = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (draggedIndex === null || draggedIndex === dropIndex) {
+      setDraggedIndex(null);
+      setDragOverIndex(null);
+      return;
+    }
+
+    const newOrderedImages = [...orderedImages];
+    const [draggedItem] = newOrderedImages.splice(draggedIndex, 1);
+    newOrderedImages.splice(dropIndex, 0, draggedItem);
+    
+    setOrderedImages(newOrderedImages);
+    setDraggedIndex(null);
+    setDragOverIndex(null);
+    
+    // Save the new order
+    handleSaveOrder(newOrderedImages);
+  };
+
+  const handleSaveOrder = async (newOrder: string[]) => {
+    setIsSavingOrder(true);
+    try {
+      await PortfolioAPI.updateImageOrder(portfolioId, newOrder);
+      toast.success("Image order updated successfully!");
+      onImagesUpdated();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to update image order");
+      // Revert to original order on error
+      setOrderedImages(images);
+    } finally {
+      setIsSavingOrder(false);
+    }
+  };
+
+  // Handle drag and drop for reordering selected files before upload
+  const handleFileDragStart = (index: number) => {
+    setDraggedFileIndex(index);
+  };
+
+  const handleFileDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverFileIndex(index);
+  };
+
+  const handleFileDragLeave = () => {
+    setDragOverFileIndex(null);
+  };
+
+  const handleFileDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (draggedFileIndex === null || draggedFileIndex === dropIndex) {
+      setDraggedFileIndex(null);
+      setDragOverFileIndex(null);
+      return;
+    }
+
+    const newFiles = [...selectedFiles];
+    const [draggedItem] = newFiles.splice(draggedFileIndex, 1);
+    newFiles.splice(dropIndex, 0, draggedItem);
+    
+    setSelectedFiles(newFiles);
+    setDraggedFileIndex(null);
+    setDragOverFileIndex(null);
+  };
+
+  const handleRemoveSelectedFile = (id: string) => {
+    setSelectedFiles(prev => {
+      const itemToRemove = prev.find(item => item.id === id);
+      if (itemToRemove) {
+        // Revoke the preview URL
+        URL.revokeObjectURL(itemToRemove.preview);
+      }
+      return prev.filter(item => item.id !== id);
+    });
   };
 
   const handleUpload = async () => {
@@ -36,8 +195,14 @@ function GalleryModal({
     }
     setIsUploading(true);
     try {
-      await PortfolioAPI.addPortfolioImages(portfolioId, selectedFiles);
+      // Extract files in the order they appear in selectedFiles array
+      const filesToUpload = selectedFiles.map(item => item.file);
+      await PortfolioAPI.addPortfolioImages(portfolioId, filesToUpload);
       toast.success("Images added to gallery successfully!");
+      
+      // Clean up preview URLs
+      selectedFiles.forEach(item => URL.revokeObjectURL(item.preview));
+      
       setSelectedFiles([]);
       onImagesUpdated();
       const fileInput = document.getElementById(`gallery-upload-${portfolioId}`) as HTMLInputElement;
@@ -79,53 +244,183 @@ function GalleryModal({
         </div>
         <div className="mb-6 p-4 border rounded-lg bg-gray-50">
           <label className="block font-medium mb-2">Add Images to Gallery</label>
-          <input
-            id={`gallery-upload-${portfolioId}`}
-            type="file"
-            accept="image/*"
-            multiple
-            onChange={handleFileSelect}
-            className="border p-2 w-full rounded mb-2"
-          />
-          {selectedFiles.length > 0 && (
-            <div className="mb-2">
-              <p className="text-sm text-gray-600">
-                {selectedFiles.length} file(s) selected
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+              isDragOver
+                ? "border-blue-500 bg-blue-50"
+                : "border-gray-300 bg-white"
+            }`}
+          >
+            <input
+              id={`gallery-upload-${portfolioId}`}
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+            <label
+              htmlFor={`gallery-upload-${portfolioId}`}
+              className="cursor-pointer block"
+            >
+              <p className="text-gray-600 mb-2">
+                <span className="text-blue-600 hover:text-blue-700 font-medium">
+                  Click to upload
+                </span>{" "}
+                or drag and drop images here
               </p>
+              <p className="text-xs text-gray-500">
+                PNG, JPG, GIF up to 10MB each
+              </p>
+            </label>
+          </div>
+          {selectedFiles.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm font-medium mb-2 text-gray-700">
+                Selected Files ({selectedFiles.length}) - Drag to reorder before upload
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-48 overflow-y-auto p-2 border rounded bg-gray-50">
+                {selectedFiles.map((item, index) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={() => handleFileDragStart(index)}
+                    onDragOver={(e) => handleFileDragOver(e, index)}
+                    onDragLeave={handleFileDragLeave}
+                    onDrop={(e) => handleFileDrop(e, index)}
+                    className={`relative group cursor-move transition-all ${
+                      draggedFileIndex === index
+                        ? "opacity-50 scale-95"
+                        : dragOverFileIndex === index
+                        ? "scale-105 border-2 border-blue-500"
+                        : ""
+                    }`}
+                  >
+                    <div className="absolute top-1 left-1 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded z-10">
+                      #{index + 1}
+                    </div>
+                    <img
+                      src={item.preview}
+                      alt={item.file.name}
+                      className="w-full h-24 object-cover rounded border"
+                      onError={() => {
+                        // Fallback if image fails to load
+                        console.error("Failed to load preview for", item.file.name);
+                      }}
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg
+                          className="w-6 h-6 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 8h16M4 16h16"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleRemoveSelectedFile(item.id)}
+                      className="absolute top-2 right-2 bg-red-500 text-white px-1.5 py-0.5 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-20"
+                      type="button"
+                    >
+                      ×
+                    </button>
+                    <p className="text-xs text-gray-600 mt-1 truncate" title={item.file.name}>
+                      {item.file.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           <button
             onClick={handleUpload}
             disabled={isUploading || selectedFiles.length === 0}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
+            className="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-gray-400"
           >
             {isUploading ? "Uploading..." : "Upload Images"}
           </button>
         </div>
         <div>
-          <h4 className="font-medium mb-3">Gallery Images ({images.length})</h4>
-          {images.length === 0 ? (
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="font-medium">
+              Gallery Images ({orderedImages.length})
+            </h4>
+            {isSavingOrder && (
+              <span className="text-sm text-blue-600">Saving order...</span>
+            )}
+          </div>
+          {orderedImages.length === 0 ? (
             <p className="text-gray-500 text-center py-8">
               No images in gallery yet. Upload images above.
             </p>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {images.map((imageUrl, index) => (
-                <div key={index} className="relative group">
-                  <img
-                    src={imageUrl}
-                    alt={`Gallery ${index + 1}`}
-                    className="w-full h-32 object-cover rounded border"
-                  />
-                  <button
-                    onClick={() => handleDeleteImage(imageUrl)}
-                    disabled={isDeleting === imageUrl}
-                    className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 disabled:bg-gray-400"
+            <div className="space-y-3">
+              <p className="text-xs text-gray-500 mb-2">
+                Drag and drop images to reorder them. The first image will be displayed first.
+              </p>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {orderedImages.map((imageUrl, index) => (
+                  <div
+                    key={`${imageUrl}-${index}`}
+                    draggable
+                    onDragStart={() => handleDragStart(index)}
+                    onDragOver={(e) => handleDragOverItem(e, index)}
+                    onDragLeave={handleDragLeaveItem}
+                    onDrop={(e) => handleDropItem(e, index)}
+                    className={`relative group cursor-move transition-all ${
+                      draggedIndex === index
+                        ? "opacity-50 scale-95"
+                        : dragOverIndex === index
+                        ? "scale-105 border-2 border-blue-500"
+                        : ""
+                    }`}
                   >
-                    {isDeleting === imageUrl ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
-              ))}
+                    <div className="absolute top-1 left-1 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded z-10">
+                      #{index + 1}
+                    </div>
+                    <img
+                      src={imageUrl}
+                      alt={`Gallery ${index + 1}`}
+                      className="w-full h-32 object-cover rounded border"
+                    />
+                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded flex items-center justify-center">
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <svg
+                          className="w-8 h-8 text-white"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 8h16M4 16h16"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteImage(imageUrl)}
+                      disabled={isDeleting === imageUrl}
+                      className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-sm opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 disabled:bg-gray-400 z-20"
+                    >
+                      {isDeleting === imageUrl ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
@@ -138,6 +433,34 @@ function GalleryModal({
           </button>
         </div>
       </div>
+
+      {isUploading && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+          <div className="bg-white px-6 py-4 rounded shadow-lg text-lg font-semibold text-gray-700 flex items-center gap-3">
+            <svg
+              className="animate-spin h-5 w-5 text-blue-600"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            Uploading images...
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -163,6 +486,7 @@ export function PortfolioAdmin() {
   const [editingItem, setEditingItem] = useState<PortfolioAdminModel | null>(null);
   const [coverFile, setCoverFile] = useState<File | undefined>(undefined);
   const [galleryModalOpen, setGalleryModalOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [selectedPortfolioForGallery, setSelectedPortfolioForGallery] = useState<{
     id: string;
     title: string;
@@ -203,24 +527,26 @@ export function PortfolioAdmin() {
     getAllPortfolio();
   }, []);
 
-  const onSubmit = (formData: PortfolioAdminModel) => {
+  const onSubmit = async (formData: PortfolioAdminModel) => {
     const { id, _id, ...rest } = formData;
-    if (action === "Add") {
-      PortfolioAPI.addPortfolio(rest, coverFile)
-        .then((res) => {
-          toast.success(res.data?.message || "Portfolio item added successfully!");
-          getAllPortfolio();
-          closeModal();
-        })
-        .catch((err) => toast.error(err?.response?.data?.message || "Failed to add portfolio item"));
-    } else if (action === "Edit" && editId) {
-      PortfolioAPI.editPortfolio(editId, rest, coverFile)
-        .then((res) => {
-          toast.success(res.data?.message || "Portfolio item updated successfully!");
-          getAllPortfolio();
-          closeModal();
-        })
-        .catch((err) => toast.error(err?.response?.data?.message || "Failed to update portfolio item"));
+    setIsSaving(true);
+    
+    try {
+      if (action === "Add") {
+        const res = await PortfolioAPI.addPortfolio(rest, coverFile);
+        toast.success(res.data?.message || "Portfolio item added successfully!");
+        getAllPortfolio();
+        closeModal();
+      } else if (action === "Edit" && editId) {
+        const res = await PortfolioAPI.editPortfolio(editId, rest, coverFile);
+        toast.success(res.data?.message || "Portfolio item updated successfully!");
+        getAllPortfolio();
+        closeModal();
+      }
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || (action === "Add" ? "Failed to add portfolio item" : "Failed to update portfolio item"));
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -297,7 +623,7 @@ export function PortfolioAdmin() {
         onClose={closeModal}
         onSubmit={handleSubmit(onSubmit)}
         submitLabel={action === "Edit" ? "Update" : "Save"}
-        isSubmitting={isSubmitting}
+        isSubmitting={isSaving || isSubmitting}
       >
         <div>
           <label className="block font-medium mb-1">Title</label>
@@ -417,6 +743,34 @@ export function PortfolioAdmin() {
           images={selectedPortfolioForGallery.images}
           onImagesUpdated={getAllPortfolio}
         />
+      )}
+
+      {isSaving && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white px-6 py-4 rounded shadow-lg text-lg font-semibold text-gray-700 flex items-center gap-3">
+            <svg
+              className="animate-spin h-5 w-5 text-blue-600"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              ></circle>
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              ></path>
+            </svg>
+            Saving portfolio...
+          </div>
+        </div>
       )}
     </div>
   );
